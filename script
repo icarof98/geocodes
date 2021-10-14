@@ -1,0 +1,107 @@
+//Essa função seleciona a região/país que será feito a geocodificação.
+function getGeocodingRegion() {
+  return PropertiesService.getDocumentProperties().getProperty('GEOCODING_REGION') || 'us';
+}
+// Função para realizar a geocodificação.
+function addressToPosition() {
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var cells = sheet.getActiveRange();
+  
+  // Três colunas devem estar selecionadas (Endereço, Lat, Lng).
+  // Pelo menos uma linha deve estar selecionada.
+
+  if (cells.getNumColumns() != 3) {
+    Logger.log("Você deve selecionar pelo menos três colunas:as colunas  de Endereço, Latitude e Longitude.");
+    return;
+  }
+  
+  var addressColumn = 1;
+  var addressRow;
+  
+  var latColumn = addressColumn + 1;
+  var lngColumn = addressColumn + 2;
+  
+  var geocoder = Maps.newGeocoder().setRegion(getGeocodingRegion());
+  var location;
+  
+  for (addressRow = 1; addressRow <= cells.getNumRows(); ++addressRow) {
+    var address = cells.getCell(addressRow, addressColumn).getValue();
+    
+    // Geocodificar o endereço e colocar a latitude e longitude nos 
+    // Segundo e terceiros elementos da linha.
+    location = geocoder.geocode(address);
+   
+    // Somente mudar celulas se o geocodificador conseguir 
+    // validar o endereço
+    if (location.status == 'OK') {
+      lat = location["results"][0]["geometry"]["location"]["lat"];
+      lng = location["results"][0]["geometry"]["location"]["lng"];
+      
+      cells.getCell(addressRow, latColumn).setValue(lat);
+      cells.getCell(addressRow, lngColumn).setValue(lng);
+    }
+  }
+};
+// Função para realizar a geocodificação reversa.
+function positionToAddress() {
+  var sheet = SpreadsheetApp.getActiveSheet();
+  var cells = sheet.getActiveRange();
+  
+  // Três colunas devem estar selecionadas (Endereço, Lat, Lng).
+  // Pelo menos uma linha deve estar selecionada.
+
+  if (cells.getNumColumns() != 3) {
+    Logger.log("Você deve selecionar pelo menos três colunas:as colunas  de Endereço, Latitude e Longitude.");
+    return;
+  }
+
+  var addressColumn = 1;
+  var addressRow;
+  
+  var latColumn = addressColumn + 1;
+  var lngColumn = addressColumn + 2;
+  
+  var geocoder = Maps.newGeocoder().setRegion(getGeocodingRegion());
+  var location;
+  
+  for (addressRow = 1; addressRow <= cells.getNumRows(); ++addressRow) {
+    var lat = cells.getCell(addressRow, latColumn).getValue();
+    var lng = cells.getCell(addressRow, lngColumn).getValue();
+    
+    // Geocodificar a lat, long em um endereço.
+    location = geocoder.reverseGeocode(lat, lng);
+   
+    // Somente mudar celulas se o geocodificador conseguir 
+    // validar o endereço
+    Logger.log(location.status);
+    if (location.status == 'OK') {
+      var address = location["results"][0]["formatted_address"];
+
+      cells.getCell(addressRow, addressColumn).setValue(address);
+    }
+  }  
+};
+
+//Função para criar o menu Geocode no Google Planilhas.
+function generateMenu() {
+  
+  var entries = [{
+    name: "Geocodificar celulas selecionadas (Endereços para Lat,Long)",
+    functionName: "addressToPosition"
+  },
+  {
+    name: "Geocodificar celulas selecionadas (Lat-Long para Endereços)",
+    functionName: "positionToAddress"
+  }];
+  
+  return entries;
+}
+
+function updateMenu() {
+  SpreadsheetApp.getActiveSpreadsheet().updateMenu('Geocodificador', generateMenu())
+}
+
+
+function onOpen() {
+  SpreadsheetApp.getActiveSpreadsheet().addMenu('Geocodificador', generateMenu());
+};
